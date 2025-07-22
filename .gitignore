@@ -1,2 +1,36 @@
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Keep the sample file (it should be committed)
+!.env.sample
+
+# Data source operation files
+data_source_*.json
+
+# Data sources list files  
+data_sources_list_*.json
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+venv/
+env/
+.venv/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
 node_modules/
 .ruff_cache/
