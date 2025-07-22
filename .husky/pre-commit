@@ -1,0 +1,3 @@
+# Uncomment these lines to enable pre-commit linting
+# npx lint-staged
+# ruff check --fix .
