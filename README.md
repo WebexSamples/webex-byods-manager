@@ -2,6 +2,11 @@
 
 This script manages [Webex BYODS (Bring Your Own Data Source)](https://developer.webex.com/create/docs/bring-your-own-datasource) system using the Webex Admin API.
 
+## Vidcast
+
+[![Vidcast](image.png)
+Watch the Vidcast of this app](https://app.vidcast.io/share/63e954e4-f0ae-4c20-82c3-c666cda6aad3?playerMode=vidcast)
+
 ## Main Script
 
 **`data-sources.py`** - Unified interface for all data source operations including:
