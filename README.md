@@ -50,6 +50,7 @@ python data-sources.py
 
 - Automatically loads and displays all your data sources on startup
 - Interactive menu to view/update existing data sources or register new ones
+- **Schema-aware interface**: Automatically fetches and displays available schemas with friendly service type names
 - Real-time refresh capability
 - Unified interface for all operations
 - Saves operation records automatically
@@ -75,7 +76,7 @@ When registering a new data source, the script will prompt for:
 
 - **Audience**: The audience field in the JWT token (default: "BYODS")
 - **Nonce**: Unique nonce used in the encryption of the JWT token (default: auto-generated UUID)
-- **Schema ID**: The schema ID used for the data exchange (default: "5397013b-7920-4ffc-807c-e8a3e0a18f43")
+- **Schema Selection**: Interactive menu showing available schemas with service type names and descriptions (default schema provided)
 - **Subject**: The subject field in the JWT token (default: "BYODS")
 - **URL**: The URL of the endpoint where Webex will send the data (required, no default)
 - **Token Lifetime Minutes**: The validity of the created token in minutes (default: 1440, max 1440)
@@ -87,8 +88,10 @@ When registering a new data source, the script will prompt for:
 When updating data sources, the process:
 
 - Pre-fills current values as defaults (press Enter to keep)
+- **Shows current schema with friendly service type name**
 - Requires a new nonce for security (auto-generated UUID provided)
-- Allows updating token lifetime, URL, audience, subject, schema ID, and status
+- Allows updating token lifetime, URL, audience, subject, schema selection, and status
+- **Interactive schema selection** with numbered menu of available options
 - Confirms changes before applying
 - Saves operation records to JSON files automatically
 
@@ -111,7 +114,7 @@ When updating data sources, the process:
 - [Retrieve All Data Sources](https://developer.webex.com/admin/docs/api/v1/data-sources/retrieve-all-data-sources)
 - [Retrieve Data Source Details](https://developer.webex.com/admin/docs/api/v1/data-sources/retrieve-data-source-details)
 - [Update a Data Source](https://developer.webex.com/admin/docs/api/v1/data-sources/update-a-data-source)
-- [Data Source Schemas API](https://developer.webex.com/docs/api/v1/data-sources/retrieve-all-data-source-schemas) - Browse available schemas
+- [Retrieve Data Source Schemas](https://developer.webex.com/admin/docs/api/v1/data-sources/retrieve-data-source-schemas) - Browse available schemas with service types and descriptions
 
 ### Security and Authentication
 
