@@ -16,6 +16,32 @@ Watch the Vidcast of this app](https://app.vidcast.io/share/63e954e4-f0ae-4c20-8
 - Updating existing data source configurations
 - Interactive menu-driven interface
 
+## Token Management
+
+This project includes automated token refresh functionality to handle service app token expiration:
+
+**Files:**
+- **`token_manager.py`** - Core token management class with smart refresh logic
+- **`refresh_token.py`** - Standalone script for manual token refresh
+- **`TOKEN_MANAGEMENT.md`** - Complete setup and usage documentation
+
+**Key Features:**
+- **Smart refresh strategy**: Uses refresh tokens when available, falls back to personal access tokens
+- **Automatic validation**: Checks token validity before operations
+- **Seamless integration**: Automatically refreshes tokens in the main data-sources.py script
+- **Two setup options**: Quick start with portal tokens or production-ready with integrations
+
+**Quick Token Refresh:**
+```bash
+# Activate virtual environment
+source venv/bin/activate
+
+# Manually refresh tokens
+python refresh_token.py
+```
+
+For complete setup instructions, see [TOKEN_MANAGEMENT.md](TOKEN_MANAGEMENT.md).
+
 ## Requirements
 
 - Python 3.6 or higher
@@ -41,7 +67,12 @@ Watch the Vidcast of this app](https://app.vidcast.io/share/63e954e4-f0ae-4c20-8
 
 3. Configure your access token:
    - Copy the sample environment file: `cp .env.sample .env`
-   - Edit the `.env` file and replace `your_service_app_token_here` with your actual Service App access token
+   - Edit the `.env` file and replace `your_service_app_token_here` with your actual Service App access token (stored as `WEBEX_SERVICE_APP_ACCESS_TOKEN`)
+
+4. **Optional**: Set up automated token refresh (recommended for production):
+   - Copy the token configuration template: `cp token-config.json.template token-config.json`
+   - Edit `token-config.json` with your service app and token manager credentials
+   - See [TOKEN_MANAGEMENT.md](TOKEN_MANAGEMENT.md) for detailed setup instructions
 
 ## Usage
 
@@ -54,6 +85,7 @@ python data-sources.py
 **Features:**
 
 - Automatically loads and displays all your data sources on startup
+- **Automated token refresh**: Automatically refreshes expired service app tokens
 - Interactive menu to view/update existing data sources or register new ones
 - **Schema-aware interface**: Automatically fetches and displays available schemas with friendly service type names
 - Real-time refresh capability
@@ -144,6 +176,7 @@ The script automatically saves all operation details to JSON files:
 - **Successful updates**: `data_source_update_{ID}_{timestamp}.json`
 - **Failed operations**: `data_source_{operation}_failed_{timestamp}.json`
 - **Data source lists**: `data_sources_list_{timestamp}.json` (when using --save-list flag)
+- **Token configuration**: `token-config.json` (if using automated token refresh)
 
 These files contain:
 
@@ -162,6 +195,12 @@ The script requires a Service App access token with the following scopes:
 - **Listing/Viewing**: `spark-admin:datasource_read`
 
 For full functionality, use a token that has both read and write scopes.
+
+**Token Management:**
+- Service app tokens are automatically refreshed when they expire
+- Refresh tokens are stored and used for efficient token renewal
+- Manual token refresh available via `python refresh_token.py`
+- See [TOKEN_MANAGEMENT.md](TOKEN_MANAGEMENT.md) for configuration details
 
 ## Error Handling
 
