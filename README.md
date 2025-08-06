@@ -21,23 +21,30 @@ Watch the Vidcast of this app](https://app.vidcast.io/share/63e954e4-f0ae-4c20-8
 This project includes automated token refresh functionality to handle service app token expiration:
 
 **Files:**
+
 - **`token_manager.py`** - Core token management class with smart refresh logic
 - **`refresh_token.py`** - Standalone script for manual token refresh
 - **`TOKEN_MANAGEMENT.md`** - Complete setup and usage documentation
 
 **Key Features:**
+
 - **Smart refresh strategy**: Uses refresh tokens when available, falls back to personal access tokens
+- **OAuth support**: Automatic refresh of personal access tokens via OAuth (optional)
 - **Automatic validation**: Checks token validity before operations
 - **Seamless integration**: Automatically refreshes tokens in the main data-sources.py script
-- **Two setup options**: Quick start with portal tokens or production-ready with integrations
+- **Multiple setup options**: Portal tokens, integration tokens, or full OAuth automation
 
 **Quick Token Refresh:**
+
 ```bash
 # Activate virtual environment
 source venv/bin/activate
 
 # Manually refresh tokens
 python refresh_token.py
+
+# Set up OAuth for automatic personal token refresh (optional)
+python setup_oauth.py
 ```
 
 For complete setup instructions, see [TOKEN_MANAGEMENT.md](TOKEN_MANAGEMENT.md).
@@ -66,6 +73,7 @@ For complete setup instructions, see [TOKEN_MANAGEMENT.md](TOKEN_MANAGEMENT.md).
    ```
 
 3. Configure your access token:
+
    - Copy the sample environment file: `cp .env.sample .env`
    - Edit the `.env` file and replace `your_service_app_token_here` with your actual Service App access token (stored as `WEBEX_SERVICE_APP_ACCESS_TOKEN`)
 
@@ -197,6 +205,7 @@ The script requires a Service App access token with the following scopes:
 For full functionality, use a token that has both read and write scopes.
 
 **Token Management:**
+
 - Service app tokens are automatically refreshed when they expire
 - Refresh tokens are stored and used for efficient token renewal
 - Manual token refresh available via `python refresh_token.py`

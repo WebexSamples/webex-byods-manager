@@ -85,6 +85,114 @@ class TokenManager:
         except requests.exceptions.RequestException as e:
             raise Exception(f"Refresh token request failed: {e}")
     
+    def _get_valid_personal_token(self, config: Dict) -> str:
+        """
+        Get a valid personal access token, refreshing via OAuth if needed.
+        
+        Args:
+            config: The loaded configuration
+            
+        Returns:
+            str: A valid personal access token
+        """
+        token_manager = config['tokenManager']
+        personal_token = token_manager['personalAccessToken']
+        
+        # Check if OAuth integration is configured
+        if 'integration' in token_manager and all(
+            key in token_manager['integration'] 
+            for key in ['clientId', 'clientSecret', 'refreshToken']
+        ):
+            # Test current personal token
+            if not self._is_personal_token_valid(personal_token):
+                print("Personal access token expired, refreshing via OAuth...")
+                try:
+                    personal_token = self._refresh_personal_token_oauth(token_manager['integration'])
+                    # Update the config file with new personal token
+                    self._update_personal_token_in_config(personal_token)
+                    print("Personal access token refreshed successfully")
+                except Exception as e:
+                    print(f"Failed to refresh personal token via OAuth: {e}")
+                    print("Using existing personal token (may be expired)")
+        
+        return personal_token
+    
+    def _is_personal_token_valid(self, token: str) -> bool:
+        """
+        Check if a personal access token is valid.
+        
+        Args:
+            token: The personal access token to validate
+            
+        Returns:
+            bool: True if valid, False otherwise
+        """
+        try:
+            headers = {'Authorization': f'Bearer {token}'}
+            response = requests.get('https://webexapis.com/v1/people/me', headers=headers)
+            return response.status_code == 200
+        except Exception:
+            return False
+    
+    def _refresh_personal_token_oauth(self, integration_config: Dict) -> str:
+        """
+        Refresh the personal access token using OAuth.
+        
+        Args:
+            integration_config: OAuth integration configuration
+            
+        Returns:
+            str: New personal access token
+        """
+        url = "https://webexapis.com/v1/access_token"
+        headers = {'Content-Type': 'application/x-www-form-urlencoded'}
+        data = {
+            'grant_type': 'refresh_token',
+            'client_id': integration_config['clientId'],
+            'client_secret': integration_config['clientSecret'],
+            'refresh_token': integration_config['refreshToken']
+        }
+        
+        response = requests.post(url, headers=headers, data=data)
+        
+        if response.status_code == 401:
+            raise Exception("OAuth refresh token expired. Please re-authorize your integration.")
+        
+        response.raise_for_status()
+        
+        token_data = response.json()
+        new_access_token = token_data.get('access_token')
+        new_refresh_token = token_data.get('refresh_token')
+        
+        if not new_access_token:
+            raise Exception("No access token in OAuth refresh response")
+        
+        # Update refresh token if provided
+        if new_refresh_token:
+            integration_config['refreshToken'] = new_refresh_token
+            # Note: This updates the in-memory config, _update_personal_token_in_config will save it
+        
+        return new_access_token
+    
+    def _update_personal_token_in_config(self, new_personal_token: str) -> None:
+        """
+        Update the personal access token in the config file.
+        
+        Args:
+            new_personal_token: The new personal access token
+        """
+        try:
+            with open(self.config_path, 'r') as f:
+                config = json.load(f)
+            
+            config['tokenManager']['personalAccessToken'] = new_personal_token
+            
+            with open(self.config_path, 'w') as f:
+                json.dump(config, f, indent=4)
+                
+        except Exception as e:
+            raise Exception(f"Failed to update personal token in config: {e}")
+    
     def _refresh_with_personal_token(self) -> str:
         """
         Refresh the token using the personal access token (full refresh).
@@ -102,13 +210,15 @@ class TokenManager:
         try:
             config = self._load_config()
             
+            # Try to refresh the personal access token first if OAuth is configured
+            personal_token = self._get_valid_personal_token(config)
+            
             # Prepare the API request
             service_app = config['serviceApp']
-            token_manager = config['tokenManager']
             
             url = f"https://webexapis.com/v1/applications/{service_app['appId']}/token"
             headers = {
-                'Authorization': f"Bearer {token_manager['personalAccessToken']}",
+                'Authorization': f"Bearer {personal_token}",
                 'Content-Type': 'application/json'
             }
             payload = {
@@ -174,6 +284,17 @@ class TokenManager:
             # Validate token manager fields  
             token_manager_fields = ['personalAccessToken']
             missing_token_fields = [field for field in token_manager_fields if field not in config['tokenManager']]
+            
+            # OAuth integration fields are optional
+            if 'integration' in config['tokenManager']:
+                integration_fields = ['clientId', 'clientSecret', 'refreshToken']
+                missing_integration_fields = [
+                    field for field in integration_fields 
+                    if field not in config['tokenManager']['integration']
+                ]
+                if missing_integration_fields:
+                    print(f"Warning: OAuth integration partially configured. Missing: {missing_integration_fields}")
+                    print("OAuth token refresh will not be available.")
             
             all_missing = []
             if missing_service_fields:
