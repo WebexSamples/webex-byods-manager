@@ -1,0 +1,16 @@
+{
+    "serviceApp": {
+        "appId": "YOUR_SERVICE_APP_ID_HERE",
+        "clientId": "YOUR_SERVICE_APP_CLIENT_ID_HERE",
+        "clientSecret": "YOUR_SERVICE_APP_CLIENT_SECRET_HERE",
+        "targetOrgId": "YOUR_TARGET_ORG_ID_HERE"
+    },
+    "tokenManager": {
+        "personalAccessToken": "YOUR_PERSONAL_ACCESS_TOKEN_HERE",
+        "integration": {
+            "clientId": "YOUR_TOKEN_MANAGER_INTEGRATION_CLIENT_ID_HERE",
+            "clientSecret": "YOUR_TOKEN_MANAGER_INTEGRATION_CLIENT_SECRET_HERE",
+            "refreshToken": "YOUR_TOKEN_MANAGER_INTEGRATION_REFRESH_TOKEN_HERE"
+        }
+    }
+}

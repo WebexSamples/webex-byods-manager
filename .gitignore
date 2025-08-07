@@ -6,6 +6,9 @@
 # Keep the sample file (it should be committed)
 !.env.sample
 
+# Token configuration (sensitive)
+token-config.json
+
 # Data source operation files
 data_source_*.json
 

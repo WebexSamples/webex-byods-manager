@@ -225,12 +225,34 @@ def load_env_token() -> str:
 
     load_dotenv(env_path)
 
-    token = os.getenv("WEBEX_ACCESS_TOKEN")
+    token = os.getenv("WEBEX_SERVICE_APP_ACCESS_TOKEN")
     if not token:
-        print("Error: WEBEX_ACCESS_TOKEN not found in .env file")
+        print("Error: WEBEX_SERVICE_APP_ACCESS_TOKEN not found in .env file")
         print(f"Please create a .env file in {script_dir} with:")
-        print("WEBEX_ACCESS_TOKEN=your_service_app_token_here")
+        print("WEBEX_SERVICE_APP_ACCESS_TOKEN=your_service_app_token_here")
         sys.exit(1)
+
+    # Try to import and use token manager for automatic refresh if config exists
+    try:
+        from token_manager import TokenManager
+        token_manager = TokenManager(env_path=env_path)
+        
+        # Check if token is valid, refresh if needed
+        if not token_manager.is_token_valid():
+            print("Current token is invalid or expired. Attempting to refresh...")
+            try:
+                new_token = token_manager.refresh_token()
+                token = new_token
+                print("Token refreshed successfully!")
+            except Exception as refresh_error:
+                print(f"Warning: Could not refresh token automatically: {refresh_error}")
+                print("Please refresh manually using: python refresh_token.py")
+    except ImportError:
+        # Token manager not available, continue with existing token
+        pass
+    except Exception as e:
+        print(f"Warning: Token validation/refresh failed: {e}")
+        print("Continuing with existing token...")
 
     return token
 
