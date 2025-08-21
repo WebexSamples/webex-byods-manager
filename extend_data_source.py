@@ -7,7 +7,7 @@ It only updates the nonce to trigger a new token generation.
 
 Usage:
     python extend_data_source.py <data_source_id> [token_lifetime_minutes]
-    
+
 Examples:
     python extend_data_source.py 85895e47-3096-4c47-aae8-f5a52f7b7870
     python extend_data_source.py 85895e47-3096-4c47-aae8-f5a52f7b7870 1440  # 24 hours (maximum)
@@ -21,34 +21,42 @@ from token_manager import TokenManager
 
 def main():
     if len(sys.argv) < 2:
-        print("Usage: python extend_data_source.py <data_source_id> [token_lifetime_minutes]")
+        print(
+            "Usage: python extend_data_source.py <data_source_id> [token_lifetime_minutes]"
+        )
         print("\nExample:")
         print("  python extend_data_source.py 85895e47-3096-4c47-aae8-f5a52f7b7870")
-        print("  python extend_data_source.py 85895e47-3096-4c47-aae8-f5a52f7b7870 1440  # 24 hours (maximum)")
+        print(
+            "  python extend_data_source.py 85895e47-3096-4c47-aae8-f5a52f7b7870 1440  # 24 hours (maximum)"
+        )
         sys.exit(1)
-    
+
     data_source_id = sys.argv[1]
-    token_lifetime_minutes = int(sys.argv[2]) if len(sys.argv) > 2 else 1440  # Default 24 hours (max allowed)
-    
+    token_lifetime_minutes = (
+        int(sys.argv[2]) if len(sys.argv) > 2 else 1440
+    )  # Default 24 hours (max allowed)
+
     # Validate token lifetime
     if token_lifetime_minutes > 1440:
         print("❌ Error: Token lifetime cannot exceed 1440 minutes (24 hours)")
         print(f"   Requested: {token_lifetime_minutes} minutes")
         print("   Maximum allowed: 1440 minutes")
         sys.exit(1)
-    
+
     if token_lifetime_minutes <= 0:
         print("❌ Error: Token lifetime must be positive")
         print(f"   Requested: {token_lifetime_minutes} minutes")
         sys.exit(1)
-    
+
     print(f"Extending token for data source: {data_source_id}")
-    print(f"Token lifetime: {token_lifetime_minutes} minutes ({token_lifetime_minutes / 60:.1f} hours)")
+    print(
+        f"Token lifetime: {token_lifetime_minutes} minutes ({token_lifetime_minutes / 60:.1f} hours)"
+    )
     print()
-    
+
     # Initialize token manager
     token_manager = TokenManager()
-    
+
     # Check if current service app token is valid
     if not token_manager.is_token_valid():
         print("Service app token is invalid or expired. Attempting to refresh...")
@@ -60,16 +68,18 @@ def main():
             print("\nPlease ensure your token configuration is correct.")
             print(token_manager.get_token_refresh_guidance())
             sys.exit(1)
-    
+
     # Extend the data source token
-    result = token_manager.extend_data_source_token(data_source_id, token_lifetime_minutes)
-    
+    result = token_manager.extend_data_source_token(
+        data_source_id, token_lifetime_minutes
+    )
+
     if result["success"]:
         print("✅ Data source token extended successfully!")
         print(f"   New nonce: {result['nonce_updated']}")
         print(f"   Token expiry: {result['token_expiry']}")
         print(f"   Token lifetime: {result['token_lifetime_minutes']} minutes")
-        
+
         # Save operation log
         log_filename = f"data_source_extend_{data_source_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
         log_data = {
@@ -77,18 +87,18 @@ def main():
             "operation_type": "extend_token",
             "data_source_id": data_source_id,
             "token_lifetime_minutes": token_lifetime_minutes,
-            "result": result
+            "result": result,
         }
-        
-        with open(log_filename, 'w') as f:
+
+        with open(log_filename, "w") as f:
             json.dump(log_data, f, indent=2)
-        
+
         print(f"   Operation logged to: {log_filename}")
-        
+
     else:
         print("❌ Failed to extend data source token:")
         print(f"   Error: {result['error']}")
-        if 'status_code' in result:
+        if "status_code" in result:
             print(f"   Status code: {result['status_code']}")
         sys.exit(1)
 
