@@ -14,7 +14,16 @@ Watch the Vidcast of this app](https://app.vidcast.io/share/63e954e4-f0ae-4c20-8
 - Listing and viewing existing data sources
 - Registering new data sources
 - Updating existing data source configurations
+- **Quick token extension without configuration changes**
 - Interactive menu-driven interface
+
+**`extend_data_source.py`** - Standalone script for quick token extension:
+
+- Extends data source tokens with minimal user interaction
+- Automatically generates new nonce (no input required)
+- Preserves all existing configuration values
+- Configurable token lifetime
+- Command-line automation friendly
 
 ## Token Management
 
@@ -29,9 +38,11 @@ This project includes automated token refresh functionality to handle service ap
 **Key Features:**
 
 - **Smart refresh strategy**: Uses refresh tokens when available, falls back to personal access tokens
+- **Real-time token management**: Automatically detects and handles token expiration during API operations
+- **Seamless retry mechanism**: Automatically retries failed requests after successful token refresh
 - **OAuth support**: Automatic refresh of personal access tokens via OAuth (optional)
 - **Automatic validation**: Checks token validity before operations
-- **Seamless integration**: Automatically refreshes tokens in the main data-sources.py script
+- **Zero-downtime integration**: Eliminates 401 errors without user intervention
 - **Multiple setup options**: Portal tokens, integration tokens, or full OAuth automation
 
 **Quick Token Refresh:**
@@ -93,7 +104,11 @@ python data-sources.py
 **Features:**
 
 - Automatically loads and displays all your data sources on startup
-- **Automated token refresh**: Automatically refreshes expired service app tokens
+- **Advanced automated token refresh**:
+  - Automatically refreshes expired service app tokens at startup
+  - **Real-time token refresh**: Detects 401 errors during API operations and automatically refreshes tokens
+  - **Seamless retry**: Automatically retries failed requests after successful token refresh
+  - **Zero-downtime operation**: No manual intervention required when tokens expire
 - Interactive menu to view/update existing data sources or register new ones
 - **Schema-aware interface**: Automatically fetches and displays available schemas with friendly service type names
 - Real-time refresh capability
@@ -105,8 +120,43 @@ python data-sources.py
 
 1. **View/Update Data Sources**: Select any data source to view details and optionally update
 2. **Register New Data Source**: Create a new data source with guided prompts
-3. **Refresh Data Sources List**: Reload the current list from the API
-4. **Quit**: Exit the application
+3. **Quick Extend Token (No Config Changes)**: Quickly extend a data source token without changing any configuration values
+4. **Refresh Data Sources List**: Reload the current list from the API
+5. **Quit**: Exit the application
+
+## Quick Token Extension
+
+**Quick Extend Token** option provides a fast way to extend data source tokens without modifying any configuration:
+
+- **Automatically generates a new nonce** (no user input required)
+- **Preserves all existing configuration** (audience, subject, URL, schema, status)
+- **Configurable token lifetime** (default: 24 hours, customizable)
+- **No interruption to data source operation**
+- **Saves operation logs** for audit trail
+
+### Standalone Script
+
+For automation or command-line usage:
+
+```bash
+# Extend token with default 24-hour lifetime
+python extend_data_source.py <data_source_id>
+
+# Extend token with custom lifetime (e.g., 12 hours = 720 minutes, max 1440)
+python extend_data_source.py <data_source_id> 720
+
+# Examples:
+python extend_data_source.py 85895e47-3096-4c47-aae8-f5a52f7b7870
+python extend_data_source.py 85895e47-3096-4c47-aae8-f5a52f7b7870 720  # 12 hours
+```
+
+**Automatic Features:**
+
+- Validates service app token and auto-refreshes if expired
+- **Automatic retry on token expiration**: Detects 401 errors and refreshes tokens in real-time
+- Extracts current configuration from JWT token
+- Creates operation log files automatically
+- Shows token expiry time and lifetime details
 
 **Optional Flags:**
 

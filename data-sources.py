@@ -23,6 +23,7 @@ import jwt
 from typing import Dict, Any, List
 from datetime import datetime
 from dotenv import load_dotenv
+from token_manager import TokenManager
 
 
 class WebexDataSourceManager:
@@ -39,149 +40,109 @@ class WebexDataSourceManager:
             "Content-Type": "application/json",
         }
         self.schemas_cache = None  # Cache for schemas
+        
+        # Initialize token manager for automatic refresh
+        try:
+            self.token_manager = TokenManager()
+        except Exception:
+            self.token_manager = None
+
+    def _refresh_token_if_needed(self, response: requests.Response) -> bool:
+        """
+        Check if a 401 response indicates token expiration and refresh if possible.
+        
+        Args:
+            response: The response object to check
+            
+        Returns:
+            bool: True if token was refreshed, False otherwise
+        """
+        if response.status_code == 401 and self.token_manager:
+            try:
+                print("🔄 Access token appears to be expired, attempting refresh...")
+                new_token = self.token_manager.refresh_token()
+                
+                # Update the instance with new token
+                self.access_token = new_token
+                self.headers["Authorization"] = f"Bearer {new_token}"
+                
+                print("✅ Token refreshed successfully!")
+                return True
+                
+            except Exception as e:
+                print(f"❌ Failed to refresh token: {e}")
+                return False
+        return False
+
+    def _make_request(self, method: str, url: str, **kwargs) -> Dict[str, Any]:
+        """
+        Make an HTTP request with automatic token refresh on 401 errors.
+        
+        Args:
+            method: HTTP method (GET, POST, PUT, DELETE)
+            url: Request URL
+            **kwargs: Additional arguments for requests
+            
+        Returns:
+            Dict containing success status, data/error, and status code
+        """
+        try:
+            # Make the initial request
+            response = requests.request(method, url, headers=self.headers, timeout=30, **kwargs)
+            
+            # If we get a 401, try to refresh the token and retry once
+            if response.status_code == 401 and self._refresh_token_if_needed(response):
+                print("🔄 Retrying request with refreshed token...")
+                response = requests.request(method, url, headers=self.headers, timeout=30, **kwargs)
+            
+            if response.status_code in [200, 201]:
+                return {
+                    "success": True,
+                    "data": response.json(),
+                    "status_code": response.status_code,
+                }
+            else:
+                return {
+                    "success": False,
+                    "error": response.text,
+                    "status_code": response.status_code,
+                }
+                
+        except requests.exceptions.RequestException as e:
+            return {
+                "success": False,
+                "error": f"Request failed: {str(e)}",
+                "status_code": None,
+            }
 
     def list_all_data_sources(self) -> Dict[str, Any]:
         """Retrieve all data sources"""
         url = f"{self.BASE_URL}/dataSources"
-
-        try:
-            response = requests.get(url, headers=self.headers, timeout=30)
-
-            if response.status_code == 200:
-                return {
-                    "success": True,
-                    "data": response.json(),
-                    "status_code": response.status_code,
-                }
-            else:
-                return {
-                    "success": False,
-                    "error": response.text,
-                    "status_code": response.status_code,
-                }
-
-        except requests.exceptions.RequestException as e:
-            return {
-                "success": False,
-                "error": f"Request failed: {str(e)}",
-                "status_code": None,
-            }
+        return self._make_request("GET", url)
 
     def get_data_source_details(self, data_source_id: str) -> Dict[str, Any]:
         """Retrieve details for a specific data source"""
         url = f"{self.BASE_URL}/dataSources/{data_source_id}"
-
-        try:
-            response = requests.get(url, headers=self.headers, timeout=30)
-
-            if response.status_code == 200:
-                return {
-                    "success": True,
-                    "data": response.json(),
-                    "status_code": response.status_code,
-                }
-            else:
-                return {
-                    "success": False,
-                    "error": response.text,
-                    "status_code": response.status_code,
-                }
-
-        except requests.exceptions.RequestException as e:
-            return {
-                "success": False,
-                "error": f"Request failed: {str(e)}",
-                "status_code": None,
-            }
+        return self._make_request("GET", url)
 
     def register_data_source(
         self, data_source_config: Dict[str, Any]
     ) -> Dict[str, Any]:
         """Register a new data source"""
         url = f"{self.BASE_URL}/dataSources"
-
-        try:
-            response = requests.post(
-                url, headers=self.headers, json=data_source_config, timeout=30
-            )
-
-            if response.status_code == 200:
-                return {
-                    "success": True,
-                    "data": response.json(),
-                    "status_code": response.status_code,
-                }
-            else:
-                return {
-                    "success": False,
-                    "error": response.text,
-                    "status_code": response.status_code,
-                }
-
-        except requests.exceptions.RequestException as e:
-            return {
-                "success": False,
-                "error": f"Request failed: {str(e)}",
-                "status_code": None,
-            }
+        return self._make_request("POST", url, json=data_source_config)
 
     def update_data_source(
         self, data_source_id: str, update_config: Dict[str, Any]
     ) -> Dict[str, Any]:
         """Update a data source"""
         url = f"{self.BASE_URL}/dataSources/{data_source_id}"
-
-        try:
-            response = requests.put(
-                url, headers=self.headers, json=update_config, timeout=30
-            )
-
-            if response.status_code == 200:
-                return {
-                    "success": True,
-                    "data": response.json(),
-                    "status_code": response.status_code,
-                }
-            else:
-                return {
-                    "success": False,
-                    "error": response.text,
-                    "status_code": response.status_code,
-                }
-
-        except requests.exceptions.RequestException as e:
-            return {
-                "success": False,
-                "error": f"Request failed: {str(e)}",
-                "status_code": None,
-            }
+        return self._make_request("PUT", url, json=update_config)
 
     def get_data_source_schemas(self) -> Dict[str, Any]:
         """Retrieve all available data source schemas"""
         url = f"{self.BASE_URL}/dataSources/schemas"
-
-        try:
-            response = requests.get(url, headers=self.headers, timeout=30)
-
-            if response.status_code == 200:
-                return {
-                    "success": True,
-                    "data": response.json(),
-                    "status_code": response.status_code,
-                }
-            else:
-                return {
-                    "success": False,
-                    "error": response.text,
-                    "status_code": response.status_code,
-                }
-
-        except requests.exceptions.RequestException as e:
-            return {
-                "success": False,
-                "error": f"Request failed: {str(e)}",
-                "status_code": None,
-            }
+        return self._make_request("GET", url)
 
     def load_schemas_cache(self) -> bool:
         """Load schemas into cache for friendly display"""
@@ -289,6 +250,54 @@ def enhance_data_source_with_jwt(data_source: Dict[str, Any]) -> Dict[str, Any]:
         enhanced["jwt_claims"] = jwt_claims
 
     return enhanced
+
+
+def get_token_expiration_display(data_source: Dict[str, Any]) -> str:
+    """
+    Get a human-readable token expiration display string by parsing the JWT token.
+    
+    Args:
+        data_source: Data source dictionary from API response
+        
+    Returns:
+        String showing token expiration status
+    """
+    try:
+        # Get the JWT token from the data source
+        jws_token = data_source.get('jwsToken') or data_source.get('jwtToken')
+        
+        if not jws_token:
+            return "No token found"
+        
+        # Decode the JWT token to get expiration
+        decoded = jwt.decode(jws_token, options={"verify_signature": False})
+        exp_timestamp = decoded.get('exp')
+        
+        if not exp_timestamp:
+            return "No expiration in token"
+        
+        # Convert timestamp to datetime and calculate remaining time
+        exp_date = datetime.fromtimestamp(exp_timestamp)
+        now = datetime.now()
+        
+        if exp_date > now:
+            time_diff = exp_date - now
+            total_seconds = int(time_diff.total_seconds())
+            
+            if total_seconds > 3600:  # More than 1 hour
+                hours = total_seconds // 3600
+                minutes = (total_seconds % 3600) // 60
+                return f"{hours}h {minutes}m"
+            elif total_seconds > 60:  # More than 1 minute
+                minutes = total_seconds // 60
+                return f"{minutes}m"
+            else:  # Less than 1 minute
+                return f"{total_seconds}s"
+        else:
+            return "EXPIRED"
+        
+    except Exception as e:
+        return f"Parse error: {str(e)[:15]}"
 
 
 def display_data_sources_list(
@@ -604,17 +613,19 @@ def display_main_menu(data_sources: List[Dict[str, Any]]) -> None:
             enhanced_ds = enhance_data_source_with_jwt(ds)
             audience = enhanced_ds.get("audience", "N/A")
             status = enhanced_ds.get("status", "N/A")
-            print(f"{i}. View/Update: {audience} ({status})")
+            token_expires = get_token_expiration_display(ds)
+            print(f"{i}. View/Update: {audience} ({status}) - Expires: {token_expires}")
         print()
 
     print(f"{len(data_sources) + 1}. Register New Data Source")
-    print(f"{len(data_sources) + 2}. Refresh Data Sources List")
+    print(f"{len(data_sources) + 2}. Quick Extend Token (No Config Changes)")
+    print(f"{len(data_sources) + 3}. Refresh Data Sources List")
     print("q. Quit")
 
 
 def get_main_menu_choice(data_sources: List[Dict[str, Any]]) -> str:
     """Get user's main menu choice"""
-    max_option = len(data_sources) + 2
+    max_option = len(data_sources) + 3
     while True:
         choice = input(f"\nEnter your choice (1-{max_option} or 'q'): ").strip().lower()
 
@@ -625,6 +636,9 @@ def get_main_menu_choice(data_sources: List[Dict[str, Any]]) -> str:
             return "register"
 
         if choice == str(len(data_sources) + 2):
+            return "extend"
+
+        if choice == str(len(data_sources) + 3):
             return "refresh"
 
         try:
@@ -746,6 +760,119 @@ def main():
                 else:
                     print("❌ Failed to refresh data sources!")
                     print(f"Error: {result['error']}")
+                continue
+            elif choice == "extend":
+                # Quick extend token for a data source
+                if not data_sources:
+                    print("❌ No data sources available to extend.")
+                    continue
+                
+                print("\n" + "=" * 40)
+                print("QUICK EXTEND TOKEN")
+                print("=" * 40)
+                print("Select a data source to extend its token:")
+                
+                for i, ds in enumerate(data_sources, 1):
+                    enhanced_ds = enhance_data_source_with_jwt(ds)
+                    audience = enhanced_ds.get("audience", "N/A")
+                    status = enhanced_ds.get("status", "N/A")
+                    token_expires = get_token_expiration_display(ds)
+                    print(f"{i}. {audience} ({status}) - Token expires in: {token_expires}")
+                
+                while True:
+                    ds_choice = input(f"\nSelect data source (1-{len(data_sources)} or 'c' to cancel): ").strip().lower()
+                    
+                    if ds_choice == 'c' or ds_choice == 'cancel':
+                        break
+                    
+                    try:
+                        ds_index = int(ds_choice) - 1
+                        if 0 <= ds_index < len(data_sources):
+                            selected_ds = data_sources[ds_index]
+                            ds_id = selected_ds["id"]
+                            
+                            # Get token lifetime
+                            lifetime_input = input("\nToken lifetime in minutes (default 1440 = 24 hours, max 1440): ").strip()
+                            token_lifetime = 1440  # Default 24 hours (maximum allowed)
+                            
+                            if lifetime_input:
+                                try:
+                                    token_lifetime = int(lifetime_input)
+                                    if token_lifetime > 1440:
+                                        print("Token lifetime cannot exceed 1440 minutes (24 hours). Using maximum (1440 minutes).")
+                                        token_lifetime = 1440
+                                    elif token_lifetime <= 0:
+                                        print("Token lifetime must be positive. Using default (1440 minutes).")
+                                        token_lifetime = 1440
+                                except ValueError:
+                                    print("Invalid number. Using default (1440 minutes).")
+                                    token_lifetime = 1440
+                            
+                            print(f"\nExtending token for data source: {ds_id}")
+                            print(f"Token lifetime: {token_lifetime} minutes ({token_lifetime / 60:.1f} hours)")
+                            
+                            # Initialize token manager and extend the data source token
+                            token_manager = TokenManager()
+                            
+                            # Check if current service app token is valid
+                            if not token_manager.is_token_valid():
+                                print("\nService app token is invalid or expired. Attempting to refresh...")
+                                try:
+                                    token_manager.refresh_token()
+                                    print("Service app token refreshed successfully.")
+                                except Exception as e:
+                                    print(f"Failed to refresh service app token: {e}")
+                                    print("\nPlease ensure your token configuration is correct.")
+                                    input("Press Enter to continue...")
+                                    break
+                            
+                            extend_result = token_manager.extend_data_source_token(ds_id, token_lifetime)
+                            
+                            if extend_result["success"]:
+                                print("\n✅ Data source token extended successfully!")
+                                print(f"   New nonce: {extend_result['nonce_updated']}")
+                                print(f"   Token expiry: {extend_result['token_expiry']}")
+                                print(f"   Token lifetime: {extend_result['token_lifetime_minutes']} minutes")
+                                
+                                # Save operation log
+                                log_filename = f"data_source_extend_{ds_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+                                log_data = {
+                                    "operation_timestamp": datetime.now().isoformat(),
+                                    "operation_type": "extend_token",
+                                    "data_source_id": ds_id,
+                                    "token_lifetime_minutes": token_lifetime,
+                                    "result": extend_result
+                                }
+                                
+                                with open(log_filename, 'w') as f:
+                                    json.dump(log_data, f, indent=2)
+                                
+                                print(f"   Operation logged to: {log_filename}")
+                                
+                                # Refresh the data sources list
+                                print("\nRefreshing data sources list...")
+                                result = manager.list_all_data_sources()
+                                if result["success"]:
+                                    data_sources = result["data"].get("items", [])
+                                    # Find and show the updated data source
+                                    for updated_ds in data_sources:
+                                        if updated_ds["id"] == ds_id:
+                                            new_expires = get_token_expiration_display(updated_ds)
+                                            print(f"   Updated token expires in: {new_expires}")
+                                            break
+                                
+                            else:
+                                print("\n❌ Failed to extend data source token:")
+                                print(f"   Error: {extend_result['error']}")
+                                if 'status_code' in extend_result:
+                                    print(f"   Status code: {extend_result['status_code']}")
+                            
+                            input("\nPress Enter to continue...")
+                            break
+                        else:
+                            print(f"Please enter a number between 1 and {len(data_sources)}")
+                    except ValueError:
+                        print(f"Please enter a number between 1 and {len(data_sources)} or 'c' to cancel")
                 continue
             elif choice == "register":
                 # Register new data source

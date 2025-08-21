@@ -1,10 +1,19 @@
 import json
 import requests
+import uuid
+import jwt
 from typing import Dict, Optional
 
 
 class TokenManager:
-    """Manages Webex service app token refresh and updates."""
+    """Manages Webex service app token refresh and updates.
+    
+    Key Features:
+    - Smart token refresh (uses refresh tokens when available, falls back to personal tokens)
+    - OAuth support for automatic personal token refresh
+    - Data source token extension without configuration changes
+    - Automatic token validation and refresh
+    """
     
     def __init__(self, env_path: str = ".env", config_path: str = "token-config.json"):
         """
@@ -434,3 +443,142 @@ If you're using an INTEGRATION TOKEN (Production - Option B):
 
 For production use, consider Option B (Integration) for longer-lasting tokens.
         """.strip()
+
+    def extend_data_source_token(self, data_source_id: str, token_lifetime_minutes: int = 1440) -> Dict[str, any]:
+        """
+        Quickly extend a data source token by updating only the nonce, without changing other values.
+        This is useful for extending token expiry without requiring user input for other fields.
+        
+        Args:
+            data_source_id: The ID of the data source to update
+            token_lifetime_minutes: Token lifetime in minutes (default: 1440 = 24 hours, max: 1440)
+            
+        Returns:
+            Dict containing the result of the operation
+        """
+        try:
+            # Validate token lifetime
+            if token_lifetime_minutes > 1440:
+                return {
+                    "success": False,
+                    "error": f"Token lifetime cannot exceed 1440 minutes (24 hours). Requested: {token_lifetime_minutes} minutes"
+                }
+            
+            if token_lifetime_minutes <= 0:
+                return {
+                    "success": False,
+                    "error": f"Token lifetime must be positive. Requested: {token_lifetime_minutes} minutes"
+                }
+            
+            # Get current token
+            current_token = self._get_current_token()
+            if not current_token:
+                return {
+                    "success": False,
+                    "error": "No access token found in .env file"
+                }
+            
+            # First, get the current data source configuration
+            headers = {'Authorization': f'Bearer {current_token}'}
+            get_url = f"https://webexapis.com/v1/dataSources/{data_source_id}"
+            
+            response = requests.get(get_url, headers=headers)
+            
+            if response.status_code == 401:
+                return {
+                    "success": False,
+                    "error": "Access token expired or invalid. Please refresh your token first."
+                }
+            
+            if response.status_code != 200:
+                return {
+                    "success": False,
+                    "error": f"Failed to retrieve data source: {response.text}",
+                    "status_code": response.status_code
+                }
+            
+            current_config = response.json()
+            
+            # Parse the JWT token to extract audience, subject, and schema info
+            jws_token = current_config.get("jwsToken", "")
+            audience = None
+            subject = None
+            schema_uuid = None
+            
+            if jws_token:
+                try:
+                    # Decode JWT without verification to extract claims
+                    import jwt
+                    decoded = jwt.decode(jws_token, options={"verify_signature": False})
+                    audience = decoded.get("aud")
+                    subject = decoded.get("sub")
+                    schema_uuid = decoded.get("com.cisco.datasource.schema.uuid")
+                except Exception as e:
+                    print(f"Warning: Could not decode JWT token: {e}")
+            
+            # Fallback to current config values if JWT parsing failed
+            if not audience:
+                # Try to get from current config, but it might not have audience field directly
+                audience = current_config.get("audience", "")
+            if not subject:
+                subject = current_config.get("subject", "subject")  # Default if not found
+            if not schema_uuid:
+                schema_uuid = current_config.get("schemaId", "")
+            
+            # Generate a new nonce (this is what triggers the token refresh)
+            new_nonce = str(uuid.uuid4())
+            
+            # Create update configuration with all required fields
+            update_config = {
+                "audience": audience,
+                "nonce": new_nonce,
+                "schemaId": schema_uuid,
+                "subject": subject,
+                "url": current_config.get("url"),
+                "tokenLifetimeMinutes": token_lifetime_minutes,
+                "status": current_config.get("status", "active")
+            }
+            
+            # Validate that we have all required fields
+            required_fields = ["audience", "schemaId", "url"]
+            missing_fields = [field for field in required_fields if not update_config.get(field)]
+            
+            if missing_fields:
+                return {
+                    "success": False,
+                    "error": f"Missing required fields: {missing_fields}. Could not extract from current data source."
+                }
+            
+            # Update the data source
+            update_url = f"https://webexapis.com/v1/dataSources/{data_source_id}"
+            headers['Content-Type'] = 'application/json'
+            
+            update_response = requests.put(update_url, headers=headers, json=update_config)
+            
+            if update_response.status_code == 200:
+                result_data = update_response.json()
+                return {
+                    "success": True,
+                    "data": result_data,
+                    "nonce_updated": new_nonce,
+                    "token_lifetime_minutes": token_lifetime_minutes,
+                    "token_expiry": result_data.get("tokenExpiryTime"),
+                    "message": f"Data source token extended successfully. New expiry: {result_data.get('tokenExpiryTime')}"
+                }
+            else:
+                return {
+                    "success": False,
+                    "error": f"Failed to update data source: {update_response.text}",
+                    "status_code": update_response.status_code
+                }
+                
+        except requests.exceptions.RequestException as e:
+            return {
+                "success": False,
+                "error": f"Request failed: {str(e)}"
+            }
+        except Exception as e:
+            return {
+                "success": False,
+                "error": f"Unexpected error: {str(e)}"
+            }
