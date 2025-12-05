@@ -183,46 +183,30 @@ class WebexDataSourceManager:
 
 
 def load_env_token() -> str:
-    """Load the service app access token from .env file"""
-    # Load .env file from the same directory as the script
+    """Get a fresh service app access token from token-config.json"""
+    # Load token-config.json from the same directory as the script
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    env_path = os.path.join(script_dir, ".env")
+    config_path = os.path.join(script_dir, "token-config.json")
 
-    load_dotenv(env_path)
-
-    token = os.getenv("WEBEX_SERVICE_APP_ACCESS_TOKEN")
-    if not token:
-        print("Error: WEBEX_SERVICE_APP_ACCESS_TOKEN not found in .env file")
-        print(f"Please create a .env file in {script_dir} with:")
-        print("WEBEX_SERVICE_APP_ACCESS_TOKEN=your_service_app_token_here")
-        sys.exit(1)
-
-    # Try to import and use token manager for automatic refresh if config exists
     try:
         from token_manager import TokenManager
 
-        token_manager = TokenManager(env_path=env_path)
-
-        # Check if token is valid, refresh if needed
-        if not token_manager.is_token_valid():
-            print("Current token is invalid or expired. Attempting to refresh...")
-            try:
-                new_token = token_manager.refresh_token()
-                token = new_token
-                print("Token refreshed successfully!")
-            except Exception as refresh_error:
-                print(
-                    f"Warning: Could not refresh token automatically: {refresh_error}"
-                )
-                print("Please refresh manually using: python refresh_token.py")
+        token_manager = TokenManager(config_path=config_path)
+        
+        # Get fresh service app token
+        print("Fetching fresh service app token...")
+        token = token_manager.get_service_app_token()
+        print("Service app token retrieved successfully!")
+        return token
+        
     except ImportError:
-        # Token manager not available, continue with existing token
-        pass
+        print("Error: TokenManager not available")
+        print("Please ensure token_manager.py is in the same directory")
+        sys.exit(1)
     except Exception as e:
-        print(f"Warning: Token validation/refresh failed: {e}")
-        print("Continuing with existing token...")
-
-    return token
+        print(f"Error: Could not get service app token: {e}")
+        print("Please ensure your token-config.json is properly configured")
+        sys.exit(1)
 
 
 def decode_jwt_token(token: str) -> Dict[str, Any]:

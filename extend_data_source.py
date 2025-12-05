@@ -56,18 +56,17 @@ def main():
 
     # Initialize token manager
     token_manager = TokenManager()
-
-    # Check if current service app token is valid
-    if not token_manager.is_token_valid():
-        print("Service app token is invalid or expired. Attempting to refresh...")
-        try:
-            token_manager.refresh_token()
-            print("Service app token refreshed successfully.")
-        except Exception as e:
-            print(f"Failed to refresh service app token: {e}")
-            print("\nPlease ensure your token configuration is correct.")
-            print(token_manager.get_token_refresh_guidance())
-            sys.exit(1)
+    
+    print("Fetching fresh service app token...")
+    try:
+        token_manager.get_service_app_token()
+        print("Service app token retrieved successfully.")
+    except Exception as e:
+        print(f"Failed to get service app token: {e}")
+        print("\nPlease ensure your token configuration is correct.")
+        print("Get a fresh personal access token from developer.webex.com")
+        print("and update it in token-config.json")
+        sys.exit(1)
 
     # Extend the data source token
     result = token_manager.extend_data_source_token(
