@@ -7,10 +7,8 @@
     },
     "tokenManager": {
         "personalAccessToken": "YOUR_PERSONAL_ACCESS_TOKEN_HERE",
-        "integration": {
-            "clientId": "YOUR_TOKEN_MANAGER_INTEGRATION_CLIENT_ID_HERE",
-            "clientSecret": "YOUR_TOKEN_MANAGER_INTEGRATION_CLIENT_SECRET_HERE",
-            "refreshToken": "YOUR_TOKEN_MANAGER_INTEGRATION_REFRESH_TOKEN_HERE"
-        }
+        "oauthClientId": "YOUR_OAUTH_CLIENT_ID_HERE",
+        "oauthClientSecret": "YOUR_OAUTH_CLIENT_SECRET_HERE",
+        "oauthRefreshToken": "YOUR_OAUTH_REFRESH_TOKEN_HERE"
     }
 }

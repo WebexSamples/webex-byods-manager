@@ -1,12 +1,4 @@
-# Environment files
-.env
-.env.local
-.env.*.local
-
-# Keep the sample file (it should be committed)
-!.env.sample
-
-# Token configuration (sensitive)
+# Token configuration (sensitive - contains all credentials and tokens)
 token-config.json
 
 # Data source operation files
@@ -37,3 +29,7 @@ Thumbs.db
 
 node_modules/
 .ruff_cache/
+
+# AWS Lambda deployment artifacts
+deploy/lambda_deployment.zip
+deploy/lambda_package/

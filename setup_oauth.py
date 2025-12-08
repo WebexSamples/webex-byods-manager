@@ -41,12 +41,6 @@ def setup_oauth_flow():
 
     config = load_config()
 
-    # Check if OAuth integration is configured
-    if "integration" not in config["tokenManager"]:
-        config["tokenManager"]["integration"] = {}
-
-    integration = config["tokenManager"]["integration"]
-
     # Get OAuth credentials
     print("First, you need the OAuth credentials from your Token Manager Integration:")
     print("(This is DIFFERENT from your service app credentials)")
@@ -132,10 +126,10 @@ def setup_oauth_flow():
             print("Error: Did not receive both access and refresh tokens")
             return
 
-        # Update configuration
-        integration["clientId"] = client_id
-        integration["clientSecret"] = client_secret
-        integration["refreshToken"] = refresh_token
+        # Update configuration with flat structure
+        config["tokenManager"]["oauthClientId"] = client_id
+        config["tokenManager"]["oauthClientSecret"] = client_secret
+        config["tokenManager"]["oauthRefreshToken"] = refresh_token
         config["tokenManager"]["personalAccessToken"] = access_token
 
         save_config(config)

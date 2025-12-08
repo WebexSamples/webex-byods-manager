@@ -1,5 +1,7 @@
 # Webex BYO Data Source Management
 
+[![License: Cisco Sample Code](https://img.shields.io/badge/License-Cisco%20Sample%20Code-blue.svg)](LICENSE)
+
 This script manages [Webex BYODS (Bring Your Own Data Source)](https://developer.webex.com/create/docs/bring-your-own-datasource) system using the Webex Admin API.
 
 ## Vidcast
@@ -45,13 +47,13 @@ This project includes automated token refresh functionality to handle service ap
 - **Zero-downtime integration**: Eliminates 401 errors without user intervention
 - **Multiple setup options**: Portal tokens, integration tokens, or full OAuth automation
 
-**Quick Token Refresh:**
+**Test Credentials:**
 
 ```bash
 # Activate virtual environment
 source venv/bin/activate
 
-# Manually refresh tokens
+# Test fetching a fresh service app token
 python refresh_token.py
 
 # Set up OAuth for automatic personal token refresh (optional)
@@ -63,10 +65,12 @@ For complete setup instructions, see [TOKEN_MANAGEMENT.md](TOKEN_MANAGEMENT.md).
 ## Requirements
 
 - Python 3.6 or higher
-- A Webex Service App with appropriate scopes:
+- **A Webex Service App** with appropriate scopes:
   - `spark-admin:datasource_write` (for registration and updates)
   - `spark-admin:datasource_read` (for listing/viewing)
-- Access token from your Service App
+- **Authentication credentials** to request service app tokens (choose one):
+  - **Option A (Quick Start)**: Personal Access Token from [developer.webex.com](https://developer.webex.com) (expires every 12 hours)
+  - **Option B (Production)**: Integration with `spark:applications_token` scope for OAuth-based refresh
 
 ## Setup
 
@@ -83,12 +87,13 @@ For complete setup instructions, see [TOKEN_MANAGEMENT.md](TOKEN_MANAGEMENT.md).
    pip install -r requirements.txt
    ```
 
-3. Configure your access token:
+3. Configure your credentials:
 
-   - Copy the sample environment file: `cp .env.sample .env`
-   - Edit the `.env` file and replace `your_service_app_token_here` with your actual Service App access token (stored as `WEBEX_SERVICE_APP_ACCESS_TOKEN`)
+   - Copy the token configuration template: `cp token-config.json.template token-config.json`
+   - Edit `token-config.json` with your service app and token manager credentials
+   - Tokens are fetched fresh each time (not stored)
 
-4. **Optional**: Set up automated token refresh (recommended for production):
+4. **Recommended**: Set up automated token refresh (for production use):
    - Copy the token configuration template: `cp token-config.json.template token-config.json`
    - Edit `token-config.json` with your service app and token manager credentials
    - See [TOKEN_MANAGEMENT.md](TOKEN_MANAGEMENT.md) for detailed setup instructions
@@ -189,6 +194,95 @@ When updating data sources, the process:
 - **Interactive schema selection** with numbered menu of available options
 - Confirms changes before applying
 - Saves operation records to JSON files automatically
+
+## AWS Lambda Deployment (Automated Cloud Execution)
+
+For production use cases requiring fully automated token refresh without manual intervention, you can deploy this solution as an AWS Lambda function that runs on a scheduled basis.
+
+### Why Use AWS Lambda?
+
+- **Fully automated**: No server management required
+- **Scheduled execution**: Runs hourly (or custom schedule) to keep tokens fresh
+- **Cost-effective**: ~$0.41/month for hourly execution
+- **Reliable**: AWS handles infrastructure, monitoring, and scaling
+- **Secure**: Credentials stored in AWS Secrets Manager with encryption
+
+### Quick Start
+
+1. **Package the Lambda function:**
+
+   ```bash
+   cd deploy
+   chmod +x package_lambda.sh
+   ./package_lambda.sh
+   ```
+
+   This creates `lambda_deployment.zip` with all dependencies.
+
+2. **Deploy to AWS:**
+
+   Follow the step-by-step guide: **[`deploy/AWS_SETUP.md`](deploy/AWS_SETUP.md)**
+
+   The guide covers:
+
+   - **OAuth setup** (REQUIRED for automated operation)
+   - Creating AWS Secrets Manager secret
+   - Setting up IAM roles and policies
+   - Creating and configuring Lambda function
+   - EventBridge scheduled triggers
+   - Testing and monitoring setup
+
+### Architecture Overview
+
+```text
+EventBridge (Hourly Trigger)
+    ↓
+Lambda Function
+    ↓
+AWS Secrets Manager ← Read credentials
+    ↓                 ← Update tokens
+Webex API ← Extend data source token
+```
+
+### Key Features
+
+- **Automatic token refresh**: Lambda validates and refreshes service app tokens before extending data source tokens
+- **Secrets management**: All credentials securely stored in AWS Secrets Manager
+- **Error handling**: Comprehensive logging to CloudWatch for troubleshooting
+- **Cost optimization**: Efficient execution (typically 1-3 seconds) keeps costs minimal
+- **Monitoring**: Built-in CloudWatch metrics and logs for visibility
+
+### Local vs. Lambda Execution
+
+The `TokenManager` class automatically detects its environment:
+
+- **Local execution**: Uses `token-config.json` for all credentials and tokens
+- **Lambda execution**: Uses AWS Secrets Manager for all credentials and tokens
+
+This means the same code works in both environments without modification.
+
+### Monitoring and Troubleshooting
+
+**CloudWatch Logs**: View detailed execution logs for each run
+
+**CloudWatch Metrics**: Track invocations, errors, duration
+
+**Common Issues**: See [`deploy/AWS_SETUP.md`](deploy/AWS_SETUP.md#troubleshooting) for solutions
+
+### Cost Estimate
+
+Monthly AWS costs (approximate):
+
+- Lambda: $0.00 (within free tier for 720 invocations/month)
+- Secrets Manager: $0.40/month
+- CloudWatch Logs: $0.01/month
+- **Total: ~$0.41/month**
+
+### Complete Documentation
+
+For detailed setup instructions, configuration options, and troubleshooting:
+
+**[AWS Lambda Deployment Guide →](deploy/AWS_SETUP.md)**
 
 ## Documentation and Resources
 

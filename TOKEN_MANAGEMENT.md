@@ -22,11 +22,9 @@ This project now includes automated token refresh functionality for Webex servic
      },
      "tokenManager": {
        "personalAccessToken": "your_personal_access_token_or_integration_token",
-       "integration": {
-         "clientId": "your_token_manager_integration_client_id",
-         "clientSecret": "your_token_manager_integration_client_secret",
-         "refreshToken": "your_token_manager_integration_refresh_token"
-       }
+       "oauthClientId": "your_oauth_client_id",
+       "oauthClientSecret": "your_oauth_client_secret",
+       "oauthRefreshToken": "your_oauth_refresh_token"
      }
    }
    ```
@@ -171,7 +169,7 @@ if not token_manager.is_token_valid():
 - **Portal tokens** (Option A): Expire every 12 hours, good for development only
 - **Integration tokens** (Option B): Last much longer, suitable for production
 - The personal access token must have `spark:applications_token` scope
-- Service app tokens are automatically updated in the `.env` file as:
+- Service app tokens are automatically updated in `token-config.json` under the `env` section:
   - `WEBEX_SERVICE_APP_ACCESS_TOKEN`: The active service app token
   - `WEBEX_SERVICE_APP_REFRESH_TOKEN`: Used for automatic token refresh
 - **Refresh tokens** are automatically stored and used for efficient token refresh
