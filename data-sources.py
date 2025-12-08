@@ -22,7 +22,6 @@ import uuid
 import jwt
 from typing import Dict, Any, List
 from datetime import datetime
-from dotenv import load_dotenv
 from token_manager import TokenManager
 
 

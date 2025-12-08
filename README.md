@@ -224,6 +224,7 @@ For production use cases requiring fully automated token refresh without manual 
    Follow the step-by-step guide: **[`deploy/AWS_SETUP.md`](deploy/AWS_SETUP.md)**
 
    The guide covers:
+
    - **OAuth setup** (REQUIRED for automated operation)
    - Creating AWS Secrets Manager secret
    - Setting up IAM roles and policies
@@ -233,7 +234,7 @@ For production use cases requiring fully automated token refresh without manual 
 
 ### Architecture Overview
 
-```
+```text
 EventBridge (Hourly Trigger)
     ↓
 Lambda Function
@@ -271,6 +272,7 @@ This means the same code works in both environments without modification.
 ### Cost Estimate
 
 Monthly AWS costs (approximate):
+
 - Lambda: $0.00 (within free tier for 720 invocations/month)
 - Secrets Manager: $0.40/month
 - CloudWatch Logs: $0.01/month

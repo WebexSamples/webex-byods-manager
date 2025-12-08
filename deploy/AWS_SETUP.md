@@ -49,16 +49,19 @@ python setup_oauth.py
 ```
 
 This will:
+
 1. Open your browser for OAuth authorization
 2. Exchange authorization code for tokens
 3. Save OAuth credentials to `token-config.json`
 
 **What you'll get:**
+
 - `oauthClientId` - Integration client ID
-- `oauthClientSecret` - Integration client secret  
+- `oauthClientSecret` - Integration client secret
 - `oauthRefreshToken` - Long-lived refresh token (months/years)
 
 **Why this is required:**
+
 - Personal access tokens from developer.webex.com expire every 12 hours
 - OAuth refresh tokens last months/years
 - Lambda automatically refreshes personal tokens using OAuth
@@ -100,6 +103,7 @@ After running `setup_oauth.py`, your `token-config.json` will look like this:
 **Field Descriptions:**
 
 - **serviceApp**: Credentials for your Webex service app
+
   - `appId`: Your service app's application ID
   - `clientId`: Service app client ID
   - `clientSecret`: Service app client secret
@@ -141,9 +145,7 @@ After running `setup_oauth.py`, your `token-config.json` will look like this:
   "Statement": [
     {
       "Effect": "Allow",
-      "Action": [
-        "secretsmanager:GetSecretValue"
-      ],
+      "Action": ["secretsmanager:GetSecretValue"],
       "Resource": "YOUR_SECRET_ARN"
     },
     {
@@ -217,11 +219,11 @@ This creates `lambda_deployment.zip` containing all necessary code and dependenc
 2. Click **Edit** → **Add environment variable**
 3. Add the following variables:
 
-| Key | Value | Description |
-|-----|-------|-------------|
-| `DATA_SOURCE_ID` | Your data source ID | The Webex BYODS data source to manage |
-| `SECRET_NAME` | `webex-byods-credentials` | Name of the secret in Secrets Manager |
-| `TOKEN_LIFETIME_MINUTES` | `1440` | Token lifetime in minutes (optional, defaults to 1440) |
+| Key                      | Value                     | Description                                            |
+| ------------------------ | ------------------------- | ------------------------------------------------------ |
+| `DATA_SOURCE_ID`         | Your data source ID       | The Webex BYODS data source to manage                  |
+| `SECRET_NAME`            | `webex-byods-credentials` | Name of the secret in Secrets Manager                  |
+| `TOKEN_LIFETIME_MINUTES` | `1440`                    | Token lifetime in minutes (optional, defaults to 1440) |
 
 **Note**: `AWS_REGION` is automatically set by Lambda to match the region where your function is deployed. Do not set it manually.
 
@@ -325,7 +327,7 @@ aws sns create-topic --name webex-byods-alerts
 1. In your SNS topic, click **Create subscription**
 2. Configure:
    - **Protocol**: Email
-   - **Endpoint**: your-email@example.com
+   - **Endpoint**: `your-email@example.com`
 3. Click **Create subscription**
 4. **Check your email** and click the confirmation link
 
@@ -470,10 +472,10 @@ aws cloudwatch put-metric-alarm \
 
 You now have the following alerts configured:
 
-| Alert | Trigger | Action Required |
-|-------|---------|-----------------|
-| **Lambda Errors** | Any Lambda execution failure | Check CloudWatch Logs for details |
-| **OAuth Expired** | OAuth refresh token expired | Run `setup_oauth.py` locally and update Secrets Manager |
+| Alert             | Trigger                      | Action Required                                         |
+| ----------------- | ---------------------------- | ------------------------------------------------------- |
+| **Lambda Errors** | Any Lambda execution failure | Check CloudWatch Logs for details                       |
+| **OAuth Expired** | OAuth refresh token expired  | Run `setup_oauth.py` locally and update Secrets Manager |
 
 **Expected Notifications:**
 
@@ -482,6 +484,7 @@ You now have the following alerts configured:
 - **No alerts**: Normal operation ✅
 
 **Additional Cost:**
+
 - SNS: First 1,000 emails/month FREE
 - CloudWatch Alarms: $0.10/alarm/month × 2 = **$0.20/month**
 
@@ -512,21 +515,24 @@ Set up alarms for failures:
 Useful CloudWatch Logs Insights queries:
 
 **Find all successful executions:**
-```
+
+```sql
 fields @timestamp, @message
 | filter @message like /successfully/
 | sort @timestamp desc
 ```
 
 **Find all errors:**
-```
+
+```sql
 fields @timestamp, @message
 | filter @message like /error/ or @message like /failed/
 | sort @timestamp desc
 ```
 
 **Check token expiry times:**
-```
+
+```sql
 fields @timestamp, @message
 | filter @message like /token_expiry/
 | parse @message /token_expiry": "(?<expiry>[^"]+)"/
@@ -542,6 +548,7 @@ fields @timestamp, @message
 **Cause:** The deployment ZIP is missing `lambda_function.py` or dependencies
 
 **Solution:**
+
 1. Verify you ran `./deploy/package_lambda.sh` successfully
 2. Check that `lambda_deployment.zip` contains `lambda_function.py`
 3. Re-upload the ZIP file to Lambda
@@ -552,6 +559,7 @@ fields @timestamp, @message
 **Cause:** Secret name mismatch or wrong region
 
 **Solution:**
+
 - Verify `SECRET_NAME` environment variable matches the actual secret name
 - Ensure `AWS_REGION` matches where you created the secret
 - Check IAM role has permission to access the secret
@@ -561,6 +569,7 @@ fields @timestamp, @message
 **Cause:** IAM role lacks permissions
 
 **Solution:**
+
 - Verify the Lambda execution role has `secretsmanager:GetSecretValue` permission
 - Check the secret ARN in the IAM policy is correct
 - Ensure the policy is attached to the Lambda execution role
@@ -570,6 +579,7 @@ fields @timestamp, @message
 **Cause:** Expired personal access token or invalid credentials
 
 **Solution:**
+
 - Get a fresh personal access token from developer.webex.com
 - Update the secret in Secrets Manager:
   1. Go to Secrets Manager → Your secret → **Retrieve secret value**
@@ -582,6 +592,7 @@ fields @timestamp, @message
 **Cause:** The OAuth refresh token has expired (typically after months/years)
 
 **Solution:**
+
 1. On your local machine, run: `python setup_oauth.py`
 2. Complete the OAuth flow in your browser
 3. Copy the new refresh token from `token-config.json`
@@ -593,6 +604,7 @@ fields @timestamp, @message
 5. Test the Lambda function to verify it works
 
 **Prevention:**
+
 - OAuth refresh tokens typically last months to years
 - When you receive this alert, it's a routine maintenance task
 - The alert ensures you're notified before data source tokens fail to extend
@@ -602,6 +614,7 @@ fields @timestamp, @message
 **Cause:** Missing environment variable
 
 **Solution:**
+
 - Add `DATA_SOURCE_ID` environment variable in Lambda configuration
 - Set it to your Webex BYODS data source ID
 
@@ -610,6 +623,7 @@ fields @timestamp, @message
 **Cause:** Network issues or API slowness
 
 **Solution:**
+
 - Increase timeout to 2-3 minutes in Lambda configuration
 - Check CloudWatch logs for specific error
 - Verify VPC configuration if Lambda is in a VPC
@@ -619,6 +633,7 @@ fields @timestamp, @message
 **Cause:** Schedule not configured or disabled
 
 **Solution:**
+
 - Check EventBridge rule is enabled
 - Verify the rule target points to your Lambda function
 - Check CloudWatch metrics for invocations
@@ -650,15 +665,18 @@ Should show the complete JSON structure with all required fields.
 **Monthly costs (approximate, us-east-1 region):**
 
 - **Lambda**: ~$0.00
+
   - 720 invocations/month (hourly)
   - ~2 seconds duration @ 256MB
   - Well within free tier (1M requests/month)
 
 - **Secrets Manager**: ~$0.40/month
+
   - $0.40 per secret per month
   - API calls included in secret cost
 
 - **CloudWatch Logs**: ~$0.01/month
+
   - Minimal log data
   - Free tier: 5GB ingestion
 
@@ -666,23 +684,27 @@ Should show the complete JSON structure with all required fields.
   - $0.10 per alarm per month
   - 2 alarms (Lambda errors + OAuth failures)
 
-**Total estimated cost: ~$0.61/month**
+### Total estimated cost: ~$0.61/month
 
 ## Security Best Practices
 
 1. **Rotate Credentials Regularly**
+
    - Update personal access token every 90 days
    - Use OAuth integration for automatic rotation when possible
 
 2. **Least Privilege IAM**
+
    - Grant only necessary permissions
    - Use specific secret ARNs, not wildcards
 
 3. **Enable CloudTrail**
+
    - Monitor secret access
    - Track Lambda invocations
 
 4. **Use VPC (Optional)**
+
    - For additional network isolation
    - Requires VPC endpoints for Secrets Manager
 
@@ -717,4 +739,3 @@ To remove the Lambda function:
 - [Webex BYODS Documentation](https://developer.webex.com/create/docs/bring-your-own-datasource)
 - Project README: [../README.md](../README.md)
 - Token Management Guide: [../TOKEN_MANAGEMENT.md](../TOKEN_MANAGEMENT.md)
-
