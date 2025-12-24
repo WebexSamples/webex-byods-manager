@@ -13,6 +13,67 @@ except ImportError:
     AWS_AVAILABLE = False
 
 
+# Standalone utility functions for token validation and refresh
+def is_personal_token_valid(token: str) -> bool:
+    """
+    Check if a personal access token is valid.
+
+    Args:
+        token: The personal access token to validate
+
+    Returns:
+        bool: True if valid, False otherwise
+    """
+    try:
+        headers = {"Authorization": f"Bearer {token}"}
+        response = requests.get(
+            "https://webexapis.com/v1/people/me", headers=headers
+        )
+        return response.status_code == 200
+    except Exception:
+        return False
+
+
+def refresh_personal_token_oauth(config: Dict) -> str:
+    """
+    Refresh the personal access token using OAuth.
+
+    Args:
+        config: Configuration dictionary containing clientId, clientSecret, and refreshToken
+
+    Returns:
+        str: New personal access token
+        
+    Raises:
+        Exception: If refresh fails
+    """
+    url = "https://webexapis.com/v1/access_token"
+    headers = {"Content-Type": "application/x-www-form-urlencoded"}
+    data = {
+        "grant_type": "refresh_token",
+        "client_id": config["clientId"],
+        "client_secret": config["clientSecret"],
+        "refresh_token": config["refreshToken"],
+    }
+
+    response = requests.post(url, headers=headers, data=data)
+
+    if response.status_code == 401:
+        raise Exception(
+            "OAuth refresh token expired. Please re-authorize your integration."
+        )
+
+    response.raise_for_status()
+
+    token_data = response.json()
+    new_access_token = token_data.get("access_token")
+
+    if not new_access_token:
+        raise Exception("No access token in OAuth refresh response")
+
+    return new_access_token
+
+
 class TokenManager:
     """Manages Webex service app authentication.
 
@@ -196,7 +257,7 @@ class TokenManager:
             ]
 
             # OAuth fields are optional but must all be present together
-            oauth_fields = ["oauthClientId", "oauthClientSecret", "oauthRefreshToken"]
+            oauth_fields = ["clientId", "clientSecret", "refreshToken"]
             oauth_present = [field in config["tokenManager"] for field in oauth_fields]
             
             if any(oauth_present) and not all(oauth_present):
@@ -224,7 +285,7 @@ class TokenManager:
         except Exception:
             raise
 
-    def _is_personal_token_valid(self, token: str) -> bool:
+    def is_personal_token_valid(self, token: str) -> bool:
         """
         Check if a personal access token is valid.
 
@@ -243,7 +304,7 @@ class TokenManager:
         except Exception:
             return False
 
-    def _refresh_personal_token_oauth(self, config: Dict) -> str:
+    def refresh_personal_token_oauth(self, config: Dict) -> str:
         """
         Refresh the personal access token using OAuth.
 
@@ -257,9 +318,9 @@ class TokenManager:
         headers = {"Content-Type": "application/x-www-form-urlencoded"}
         data = {
             "grant_type": "refresh_token",
-            "client_id": config["oauthClientId"],
-            "client_secret": config["oauthClientSecret"],
-            "refresh_token": config["oauthRefreshToken"],
+            "client_id": config["clientId"],
+            "client_secret": config["clientSecret"],
+            "refresh_token": config["refreshToken"],
         }
 
         response = requests.post(url, headers=headers, data=data)
@@ -279,45 +340,51 @@ class TokenManager:
 
         return new_access_token
 
-    def _get_valid_personal_token(self, config: Dict) -> str:
+    def _try_refresh_personal_token(self, config: Dict) -> str:
         """
-        Get a valid personal access token, refreshing via OAuth if needed.
+        Attempt to refresh the personal access token via OAuth.
 
         Args:
             config: The loaded configuration
 
         Returns:
-            str: A valid personal access token
+            str: A refreshed personal access token
+            
+        Raises:
+            Exception: If refresh is not configured or fails
         """
         token_manager = config["tokenManager"]
-        personal_token = token_manager["personalAccessToken"]
 
         # Check if OAuth is configured (all three fields must be present)
         oauth_configured = all(
             key in token_manager
-            for key in ["oauthClientId", "oauthClientSecret", "oauthRefreshToken"]
+            for key in ["clientId", "clientSecret", "refreshToken"]
         )
         
-        if oauth_configured:
-            # Test current personal token
-            if not self._is_personal_token_valid(personal_token):
-                print("Personal access token expired, refreshing via OAuth...")
-                try:
-                    personal_token = self._refresh_personal_token_oauth(token_manager)
-                    # Update the config file with new personal token
-                    self._update_personal_token_in_config(personal_token)
-                    print("Personal access token refreshed successfully")
-                except Exception as e:
-                    print(f"Failed to refresh personal token via OAuth: {e}")
-                    print("Using existing personal token (may be expired)")
-
+        if not oauth_configured:
+            raise Exception(
+                "OAuth refresh is not configured. Cannot refresh token automatically. "
+                "Please run setup_oauth.py to configure automatic token refresh, "
+                "or manually update personalAccessToken in token-config.json"
+            )
+        
+        print("Personal access token expired, refreshing via OAuth...")
+        personal_token = self.refresh_personal_token_oauth(token_manager)
+        
+        # Update the config file with new personal token
+        self._update_personal_token_in_config(personal_token)
+        print("Personal access token refreshed successfully")
+        
         return personal_token
 
     def get_service_app_token(self) -> str:
         """
         Get a fresh service app access token.
         
-        This method always fetches a new token from the Webex API.
+        This method fetches a token from the Webex Token Manager API.
+        If the personal access token is expired, it will attempt to refresh it
+        automatically using OAuth (if configured) and retry.
+        
         The token is cached in memory for the duration of the script execution.
 
         Returns:
@@ -330,54 +397,80 @@ class TokenManager:
         if self._service_app_token:
             return self._service_app_token
         
+        config = self._load_config()
+        
+        # Try to get token with current personal token
         try:
-            config = self._load_config()
-
-            # Get a valid personal access token (refresh if needed)
-            personal_token = self._get_valid_personal_token(config)
-
-            # Prepare the API request
-            service_app = config["serviceApp"]
-
-            url = f"https://webexapis.com/v1/applications/{service_app['appId']}/token"
-            headers = {
-                "Authorization": f"Bearer {personal_token}",
-                "Content-Type": "application/json",
-            }
-            payload = {
-                "clientId": service_app["clientId"],
-                "clientSecret": service_app["clientSecret"],
-                "targetOrgId": service_app["targetOrgId"],
-            }
-
-            # Make the API call
-            response = requests.post(url, headers=headers, json=payload)
-
-            if response.status_code == 401:
-                raise Exception(
-                    "Authentication failed. Your personal access token may have expired. "
-                    "Get a new one from developer.webex.com and update token-config.json"
-                )
-
-            response.raise_for_status()
-
-            token_data = response.json()
-            access_token = token_data.get("access_token")
-            refresh_token = token_data.get("refresh_token")
-
-            if not access_token:
-                raise Exception("No access token in API response")
-
-            # Cache tokens in memory for this execution
-            self._service_app_token = access_token
-            self._service_app_refresh_token = refresh_token
-
-            return access_token
-
-        except requests.exceptions.RequestException as e:
-            raise Exception(f"Token request failed: {e}")
+            return self._fetch_service_app_token(config)
+        except requests.exceptions.HTTPError as e:
+            # If we get a 401, the personal token might be expired
+            if e.response.status_code == 401:
+                print("Token Manager authentication failed (401), attempting to refresh personal token...")
+                try:
+                    # Try to refresh the personal token
+                    new_personal_token = self._try_refresh_personal_token(config)
+                    
+                    # Update config in memory with refreshed token
+                    config["tokenManager"]["personalAccessToken"] = new_personal_token
+                    
+                    # Retry fetching service app token with refreshed personal token
+                    print("Retrying with refreshed token...")
+                    return self._fetch_service_app_token(config)
+                    
+                except Exception as refresh_error:
+                    raise Exception(
+                        f"Failed to refresh personal token: {refresh_error}. "
+                        "Please run setup_oauth.py to re-authorize."
+                    )
+            else:
+                # Some other HTTP error
+                raise Exception(f"Token request failed with status {e.response.status_code}: {e.response.text}")
         except Exception as e:
             raise Exception(f"Failed to get service app token: {e}")
+    
+    def _fetch_service_app_token(self, config: Dict) -> str:
+        """
+        Internal method to fetch service app token from the API.
+        
+        Args:
+            config: The loaded configuration
+            
+        Returns:
+            str: Service app access token
+            
+        Raises:
+            requests.exceptions.HTTPError: If the API request fails
+        """
+        personal_token = config["tokenManager"]["personalAccessToken"]
+        service_app = config["serviceApp"]
+
+        url = f"https://webexapis.com/v1/applications/{service_app['appId']}/token"
+        headers = {
+            "Authorization": f"Bearer {personal_token}",
+            "Content-Type": "application/json",
+        }
+        payload = {
+            "clientId": service_app["clientId"],
+            "clientSecret": service_app["clientSecret"],
+            "targetOrgId": service_app["targetOrgId"],
+        }
+
+        # Make the API call
+        response = requests.post(url, headers=headers, json=payload)
+        response.raise_for_status()  # Raises HTTPError for bad status codes
+
+        token_data = response.json()
+        access_token = token_data.get("access_token")
+        refresh_token = token_data.get("refresh_token")
+
+        if not access_token:
+            raise Exception("No access token in API response")
+
+        # Cache tokens in memory for this execution
+        self._service_app_token = access_token
+        self._service_app_refresh_token = refresh_token
+
+        return access_token
 
     def extend_data_source_token(
         self, data_source_id: str, token_lifetime_minutes: int = 1440
