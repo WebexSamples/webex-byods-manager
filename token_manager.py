@@ -2,7 +2,7 @@ import json
 import os
 import requests
 import uuid
-from typing import Dict, Optional
+from typing import Any, Dict, Optional
 
 # AWS SDK import - only used in Lambda environment
 try:
@@ -206,7 +206,7 @@ class TokenManager:
         except Exception as e:
             raise Exception(f"Failed to update personal token in config: {e}")
 
-    def _load_config(self) -> Dict[str, str]:
+    def _load_config(self) -> Dict[str, Any]:
         """
         Load configuration from AWS Secrets Manager or local config file.
 
@@ -339,6 +339,66 @@ class TokenManager:
             raise Exception("No access token in OAuth refresh response")
 
         return new_access_token
+
+    def is_token_valid(self) -> bool:
+        """
+        Check if the current personal access token (from config) is valid.
+
+        Returns:
+            bool: True if valid, False otherwise
+        """
+        try:
+            config = self._load_config()
+            token = config["tokenManager"]["personalAccessToken"]
+            return self.is_personal_token_valid(token)
+        except Exception:
+            return False
+
+    def refresh_token(self) -> str:
+        """
+        Refresh the personal access token via OAuth and return the new token.
+
+        Returns:
+            str: The new personal access token
+
+        Raises:
+            Exception: If OAuth is not configured or refresh fails
+        """
+        config = self._load_config()
+        return self._try_refresh_personal_token(config)
+
+    def _get_current_refresh_token(self) -> Optional[str]:
+        """
+        Get the current OAuth refresh token if configured.
+
+        Returns:
+            Optional[str]: The refresh token string if OAuth is configured,
+                None otherwise
+        """
+        try:
+            config = self._load_config()
+            token_manager = config["tokenManager"]
+            return token_manager.get("refreshToken")
+        except Exception:
+            return None
+
+    def get_token_refresh_guidance(self) -> str:
+        """
+        Get guidance for resolving token refresh issues.
+
+        Returns:
+            str: Human-readable guidance for fixing token problems
+        """
+        return (
+            "Token Refresh Guidance:\n"
+            "1. If OAuth is not configured: Run setup_oauth.py to configure "
+            "automatic token refresh.\n"
+            "2. If OAuth refresh token expired: Re-run setup_oauth.py to "
+            "re-authorize your integration.\n"
+            "3. Manual update: Edit token-config.json and set "
+            "tokenManager.personalAccessToken to a valid token from "
+            "https://developer.webex.com."
+        )
 
     def _try_refresh_personal_token(self, config: Dict) -> str:
         """
@@ -474,7 +534,7 @@ class TokenManager:
 
     def extend_data_source_token(
         self, data_source_id: str, token_lifetime_minutes: int = 1440
-    ) -> Dict[str, any]:
+    ) -> Dict[str, Any]:
         """
         Extend a data source token by updating only the nonce.
 
