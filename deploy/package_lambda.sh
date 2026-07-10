@@ -3,7 +3,7 @@
 # AWS Lambda Deployment Package Creator for Webex BYODS Manager
 # This script creates a deployment package (ZIP file) for AWS Lambda
 
-set -e  # Exit on error
+set -euo pipefail
 
 echo "========================================="
 echo "AWS Lambda Deployment Package Creator"
@@ -13,7 +13,23 @@ echo ""
 # Configuration
 PACKAGE_DIR="lambda_package"
 OUTPUT_ZIP="lambda_deployment.zip"
-PYTHON_VERSION="3.14"
+PYTHON_VERSION="${PYTHON_VERSION:-3.14}"
+LAMBDA_ARCHITECTURE="${LAMBDA_ARCHITECTURE:-x86_64}"
+PYTHON_BIN="${PYTHON_BIN:-python3}"
+
+case "$LAMBDA_ARCHITECTURE" in
+    x86_64)
+        LAMBDA_PLATFORM="manylinux2014_x86_64"
+        ;;
+    arm64)
+        LAMBDA_PLATFORM="manylinux2014_aarch64"
+        ;;
+    *)
+        echo "Unsupported Lambda architecture: $LAMBDA_ARCHITECTURE"
+        echo "Supported architectures: x86_64, arm64"
+        exit 1
+        ;;
+esac
 
 # Clean up any previous package directory
 if [ -d "$PACKAGE_DIR" ]; then
@@ -28,18 +44,24 @@ mkdir -p "$PACKAGE_DIR"
 # Install dependencies
 echo ""
 echo "Installing Python dependencies..."
-echo "Using Python $PYTHON_VERSION"
+echo "Targeting Python $PYTHON_VERSION on $LAMBDA_ARCHITECTURE Linux"
 
 # Check if we're in a virtual environment
-if [ -z "$VIRTUAL_ENV" ]; then
+if [ -z "${VIRTUAL_ENV:-}" ]; then
     echo "Warning: Not in a virtual environment. It's recommended to activate your venv first."
     echo "Continuing anyway..."
 fi
 
-# Install dependencies to package directory
-pip install --target "$PACKAGE_DIR" \
+# Resolve Linux wheels even when packaging from macOS or Windows. Native host
+# wheels cannot be imported by the Lambda runtime.
+"$PYTHON_BIN" -m pip install --target "$PACKAGE_DIR" \
     -r ../requirements.txt \
     --upgrade \
+    --platform "$LAMBDA_PLATFORM" \
+    --implementation cp \
+    --python-version "$PYTHON_VERSION" \
+    --only-binary=:all: \
+    --no-compile \
     --quiet
 
 echo "✓ Dependencies installed"
