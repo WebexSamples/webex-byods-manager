@@ -30,10 +30,10 @@ Watch the Vidcast of this app](https://app.vidcast.io/share/63e954e4-f0ae-4c20-8
 ## SDK Dependency
 
 This CLI and Lambda consume
-[`webex-python-byods-sdk`](https://github.com/WebexCommunity/webex-python-byods-sdk)
-at the commit pinned in `requirements.txt`. The SDK owns BYODS API operations
-and token-provider behavior; this repository owns the interactive prompts,
-JSON configuration, AWS Secrets Manager adapter, and operation records.
+[`webex-byods-sdk`](https://pypi.org/project/webex-byods-sdk/) at the version
+pinned in `requirements.txt`. The SDK owns BYODS API operations and
+token-provider behavior; this repository owns the interactive prompts, JSON
+configuration, AWS Secrets Manager adapter, and operation records.
 
 ## Token Management
 
