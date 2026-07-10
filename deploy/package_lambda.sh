@@ -38,9 +38,7 @@ fi
 
 # Install dependencies to package directory
 pip install --target "$PACKAGE_DIR" \
-    requests \
-    pyjwt \
-    boto3 \
+    -r ../requirements.txt \
     --upgrade \
     --quiet
 
@@ -92,4 +90,3 @@ echo "4. Set up EventBridge trigger for hourly execution"
 echo ""
 echo "For detailed instructions, see deploy/AWS_SETUP.md"
 echo ""
-

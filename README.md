@@ -27,13 +27,21 @@ Watch the Vidcast of this app](https://app.vidcast.io/share/63e954e4-f0ae-4c20-8
 - Configurable token lifetime
 - Command-line automation friendly
 
+## SDK Dependency
+
+This CLI and Lambda consume
+[`webex-byods-sdk`](https://pypi.org/project/webex-byods-sdk/) at the version
+pinned in `requirements.txt`. The SDK owns BYODS API operations and
+token-provider behavior; this repository owns the interactive prompts, JSON
+configuration, AWS Secrets Manager adapter, and operation records.
+
 ## Token Management
 
 This project includes automated token refresh functionality to handle service app token expiration:
 
 **Files:**
 
-- **`token_manager.py`** - Core token management class with smart refresh logic
+- **`token_manager.py`** - CLI/Lambda adapter that creates SDK token providers
 - **`refresh_token.py`** - Standalone script for manual token refresh
 - **`TOKEN_MANAGEMENT.md`** - Complete setup and usage documentation
 
@@ -64,7 +72,7 @@ For complete setup instructions, see [TOKEN_MANAGEMENT.md](TOKEN_MANAGEMENT.md).
 
 ## Requirements
 
-- Python 3.6 or higher
+- Python 3.8 or higher
 - **A Webex Service App** with appropriate scopes:
   - `spark-admin:datasource_write` (for registration and updates)
   - `spark-admin:datasource_read` (for listing/viewing)
@@ -259,7 +267,7 @@ The `TokenManager` class automatically detects its environment:
 - **Local execution**: Uses `token-config.json` for all credentials and tokens
 - **Lambda execution**: Uses AWS Secrets Manager for all credentials and tokens
 
-This means the same code works in both environments without modification.
+The adapter supplies either configuration source to the same SDK provider API.
 
 ### Monitoring and Troubleshooting
 
