@@ -21,6 +21,7 @@ Before you begin, ensure you have:
 
 - AWS Account with appropriate permissions
 - AWS CLI installed and configured (optional, but recommended)
+- Python with `pip` available for creating the deployment package
 - Your Webex service app credentials:
   - Service App ID
   - Service App Client ID
@@ -194,6 +195,17 @@ chmod +x package_lambda.sh
 ```
 
 This creates `lambda_deployment.zip` containing all necessary code and dependencies.
+The script targets Python 3.14 on x86_64 Linux by default, including when it is
+run from macOS or Windows, so native dependency wheels are compatible with Lambda.
+
+For an ARM Lambda, build the matching package explicitly:
+
+```bash
+LAMBDA_ARCHITECTURE=arm64 ./package_lambda.sh
+```
+
+Use `PYTHON_BIN=/path/to/python` when the Python executable you want to use for
+packaging is not available as `python3`.
 
 ### Step 5: Create Lambda Function
 
