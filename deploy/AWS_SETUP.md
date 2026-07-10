@@ -716,7 +716,7 @@ Should show the complete JSON structure with all required fields.
 
 To update the code:
 
-1. Make changes locally to `lambda_function.py` or `token_manager.py`
+1. Make changes locally to `lambda_function.py`, `token_manager.py`, or `requirements.txt`
 2. Run the packaging script: `./deploy/package_lambda.sh`
 3. Upload new `lambda_deployment.zip` to Lambda
 4. Test the function

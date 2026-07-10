@@ -16,278 +16,36 @@ Usage:
 import os
 import sys
 import json
-import requests
 import argparse
 import uuid
-import jwt
 from typing import Dict, Any, List
 from datetime import datetime
 from token_manager import TokenManager
+from webex_byods import (
+    WebexDataSourceClient as WebexDataSourceManager,
+    enhance_data_source_with_jwt,
+    get_token_expiration_display,
+)
 
 
-class WebexDataSourceManager:
-    """Handle Webex Data Source operations via API"""
-
-    BASE_URL = "https://webexapis.com/v1"
-
-    def __init__(self, access_token: str):
-        """Initialize with access token"""
-        self.access_token = access_token
-        self.headers = {
-            "Authorization": f"Bearer {access_token}",
-            "Accept": "application/json",
-            "Content-Type": "application/json",
-        }
-        self.schemas_cache = None  # Cache for schemas
-
-        # Initialize token manager for automatic refresh
-        try:
-            self.token_manager = TokenManager()
-        except Exception:
-            self.token_manager = None
-
-    def _refresh_token_if_needed(self, response: requests.Response) -> bool:
-        """
-        Check if a 401 response indicates token expiration and refresh if possible.
-
-        Args:
-            response: The response object to check
-
-        Returns:
-            bool: True if token was refreshed, False otherwise
-        """
-        if response.status_code == 401 and self.token_manager:
-            try:
-                print("🔄 Access token appears to be expired, attempting refresh...")
-                new_token = self.token_manager.refresh_token()
-
-                # Update the instance with new token
-                self.access_token = new_token
-                self.headers["Authorization"] = f"Bearer {new_token}"
-
-                print("✅ Token refreshed successfully!")
-                return True
-
-            except Exception as e:
-                print(f"❌ Failed to refresh token: {e}")
-                return False
-        return False
-
-    def _make_request(self, method: str, url: str, **kwargs) -> Dict[str, Any]:
-        """
-        Make an HTTP request with automatic token refresh on 401 errors.
-
-        Args:
-            method: HTTP method (GET, POST, PUT, DELETE)
-            url: Request URL
-            **kwargs: Additional arguments for requests
-
-        Returns:
-            Dict containing success status, data/error, and status code
-        """
-        try:
-            # Make the initial request
-            response = requests.request(
-                method, url, headers=self.headers, timeout=30, **kwargs
-            )
-
-            # If we get a 401, try to refresh the token and retry once
-            if response.status_code == 401 and self._refresh_token_if_needed(response):
-                print("🔄 Retrying request with refreshed token...")
-                response = requests.request(
-                    method, url, headers=self.headers, timeout=30, **kwargs
-                )
-
-            if response.status_code in [200, 201]:
-                return {
-                    "success": True,
-                    "data": response.json(),
-                    "status_code": response.status_code,
-                }
-            else:
-                return {
-                    "success": False,
-                    "error": response.text,
-                    "status_code": response.status_code,
-                }
-
-        except requests.exceptions.RequestException as e:
-            return {
-                "success": False,
-                "error": f"Request failed: {str(e)}",
-                "status_code": None,
-            }
-
-    def list_all_data_sources(self) -> Dict[str, Any]:
-        """Retrieve all data sources"""
-        url = f"{self.BASE_URL}/dataSources"
-        return self._make_request("GET", url)
-
-    def get_data_source_details(self, data_source_id: str) -> Dict[str, Any]:
-        """Retrieve details for a specific data source"""
-        url = f"{self.BASE_URL}/dataSources/{data_source_id}"
-        return self._make_request("GET", url)
-
-    def register_data_source(
-        self, data_source_config: Dict[str, Any]
-    ) -> Dict[str, Any]:
-        """Register a new data source"""
-        url = f"{self.BASE_URL}/dataSources"
-        return self._make_request("POST", url, json=data_source_config)
-
-    def update_data_source(
-        self, data_source_id: str, update_config: Dict[str, Any]
-    ) -> Dict[str, Any]:
-        """Update a data source"""
-        url = f"{self.BASE_URL}/dataSources/{data_source_id}"
-        return self._make_request("PUT", url, json=update_config)
-
-    def get_data_source_schemas(self) -> Dict[str, Any]:
-        """Retrieve all available data source schemas"""
-        url = f"{self.BASE_URL}/dataSources/schemas"
-        return self._make_request("GET", url)
-
-    def load_schemas_cache(self) -> bool:
-        """Load schemas into cache for friendly display"""
-        if self.schemas_cache is not None:
-            return True  # Already loaded
-
-        result = self.get_data_source_schemas()
-        if result["success"]:
-            self.schemas_cache = result["data"].get("items", [])
-            return True
-        else:
-            print(f"Warning: Could not load schemas: {result['error']}")
-            self.schemas_cache = []
-            return False
-
-    def get_schema_display_name(self, schema_id: str) -> str:
-        """Get friendly display name for a schema ID"""
-        if self.schemas_cache is None:
-            self.load_schemas_cache()
-
-        for schema in self.schemas_cache:
-            if schema.get("id") == schema_id:
-                service_type = schema.get("serviceType", "Unknown Service")
-                return f"{service_type} ({schema_id[:8]}...)"
-
-        return f"Unknown Schema ({schema_id[:8]}...)"
-
-    def get_available_schemas(self) -> List[Dict[str, Any]]:
-        """Get list of available schemas for selection"""
-        if self.schemas_cache is None:
-            self.load_schemas_cache()
-
-        return self.schemas_cache
-
-
-def load_env_token() -> str:
-    """Get a fresh service app access token from token-config.json"""
+def load_env_token() -> tuple:
+    """Build the CLI adapter and retrieve an initial service-app token."""
     # Load token-config.json from the same directory as the script
     script_dir = os.path.dirname(os.path.abspath(__file__))
     config_path = os.path.join(script_dir, "token-config.json")
 
     try:
-        from token_manager import TokenManager
-
         token_manager = TokenManager(config_path=config_path)
         
         # Get fresh service app token
         print("Fetching fresh service app token...")
         token = token_manager.get_service_app_token()
         print("Service app token retrieved successfully!")
-        return token
-        
-    except ImportError:
-        print("Error: TokenManager not available")
-        print("Please ensure token_manager.py is in the same directory")
-        sys.exit(1)
+        return token, token_manager
     except Exception as e:
         print(f"Error: Could not get service app token: {e}")
         print("Please ensure your token-config.json is properly configured")
         sys.exit(1)
-
-
-def decode_jwt_token(token: str) -> Dict[str, Any]:
-    """Decode JWT token to extract audience and subject"""
-    try:
-        # Decode without verification since we just need to read the payload
-        decoded = jwt.decode(token, options={"verify_signature": False})
-        return decoded
-    except Exception as e:
-        print(f"Warning: Could not decode JWT token: {str(e)}")
-        return {}
-
-
-def enhance_data_source_with_jwt(data_source: Dict[str, Any]) -> Dict[str, Any]:
-    """Enhance data source data by decoding JWT token if present"""
-    enhanced = data_source.copy()
-
-    # Check if there's a JWT token field
-    jwt_token = data_source.get("jwtToken") or data_source.get("jwsToken")
-
-    if jwt_token:
-        jwt_claims = decode_jwt_token(jwt_token)
-
-        # Extract audience and subject from JWT if not present in main data
-        if not enhanced.get("audience") and jwt_claims.get("aud"):
-            enhanced["audience"] = jwt_claims["aud"]
-
-        if not enhanced.get("subject") and jwt_claims.get("sub"):
-            enhanced["subject"] = jwt_claims["sub"]
-
-        # Store JWT claims for reference
-        enhanced["jwt_claims"] = jwt_claims
-
-    return enhanced
-
-
-def get_token_expiration_display(data_source: Dict[str, Any]) -> str:
-    """
-    Get a human-readable token expiration display string by parsing the JWT token.
-
-    Args:
-        data_source: Data source dictionary from API response
-
-    Returns:
-        String showing token expiration status
-    """
-    try:
-        # Get the JWT token from the data source
-        jws_token = data_source.get("jwsToken") or data_source.get("jwtToken")
-
-        if not jws_token:
-            return "No token found"
-
-        # Decode the JWT token to get expiration
-        decoded = jwt.decode(jws_token, options={"verify_signature": False})
-        exp_timestamp = decoded.get("exp")
-
-        if not exp_timestamp:
-            return "No expiration in token"
-
-        # Convert timestamp to datetime and calculate remaining time
-        exp_date = datetime.fromtimestamp(exp_timestamp)
-        now = datetime.now()
-
-        if exp_date > now:
-            time_diff = exp_date - now
-            total_seconds = int(time_diff.total_seconds())
-
-            if total_seconds > 3600:  # More than 1 hour
-                hours = total_seconds // 3600
-                minutes = (total_seconds % 3600) // 60
-                return f"{hours}h {minutes}m"
-            elif total_seconds > 60:  # More than 1 minute
-                minutes = total_seconds // 60
-                return f"{minutes}m"
-            else:  # Less than 1 minute
-                return f"{total_seconds}s"
-        else:
-            return "EXPIRED"
-
-    except Exception as e:
-        return f"Parse error: {str(e)[:15]}"
 
 
 def display_data_sources_list(
@@ -690,10 +448,12 @@ def main():
 
     try:
         # Load access token
-        access_token = load_env_token()
+        access_token, token_manager = load_env_token()
 
         # Create manager instance
-        manager = WebexDataSourceManager(access_token)
+        manager = WebexDataSourceManager(
+            token_provider=token_manager.get_token_provider()
+        )
 
         print("Webex Data Source Manager")
         print("=" * 30)

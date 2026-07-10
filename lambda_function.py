@@ -152,4 +152,3 @@ if __name__ == "__main__":
     print("-" * 60)
     print("Response:")
     print(json.dumps(response, indent=2))
-

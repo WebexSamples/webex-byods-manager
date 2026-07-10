@@ -2,3 +2,4 @@ requests>=2.31.0
 python-dotenv>=1.0.0
 pyjwt>=2.8.0
 boto3>=1.28.0
+webex-byods-sdk @ git+https://github.com/WebexCommunity/webex-python-byods-sdk.git@dd89e8fed4bd52db0e1d21bd91232e3c92999029

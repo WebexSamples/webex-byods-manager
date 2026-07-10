@@ -144,12 +144,10 @@ python refresh_token.py
 
 ### Token Manager API
 
-You can also use the TokenManager class directly in your code:
+CLI and Lambda code can use this repository's adapter directly. It reads local
+JSON or AWS Secrets Manager, then supplies explicit token providers to the SDK:
 
 ```python
-# Activate virtual environment first
-source venv/bin/activate
-
 from token_manager import TokenManager
 
 # Initialize the token manager
@@ -169,10 +167,8 @@ if not token_manager.is_token_valid():
 - **Portal tokens** (Option A): Expire every 12 hours, good for development only
 - **Integration tokens** (Option B): Last much longer, suitable for production
 - The personal access token must have `spark:applications_token` scope
-- Service app tokens are automatically updated in `token-config.json` under the `env` section:
-  - `WEBEX_SERVICE_APP_ACCESS_TOKEN`: The active service app token
-  - `WEBEX_SERVICE_APP_REFRESH_TOKEN`: Used for automatic token refresh
-- **Refresh tokens** are automatically stored and used for efficient token refresh
+- Service app tokens are cached in memory for the running process
+- The SDK does not write credentials or token values to `token-config.json`
 - Consider using environment variables for the token config in production environments
 
 ## How Refresh Tokens Work
